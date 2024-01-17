@@ -38,10 +38,7 @@ public:
 		}
 
 		//checkHeader(Config->getVideoWidth(), Config->getVideoHeight(), &header);
-		if (pDestBuffer)
-		{
-			pDestBuffer = new uint8_t[h.width * h.height * 4];
-		}
+		
 		unsigned char* buffer = pDestBuffer;
 		if (fread(buffer, h.width * h.height * 4, 1, fp) != 1)
 		{

@@ -130,39 +130,15 @@ namespace MyRGB {
 				const float R = (float)*source++;
 				dA = *source++;
 
-
 				const float dR = R;
 				const float dG = G;
 				const float dB = B;
-
-				int Y = lrint(((dR * 2126 + dG * 7152 + dB * 722) / 10000 * 219) / 255 + 16);
-				int U = lrint((112 * dB - 86 * dG - 26 * dR) / 255 + 128);
-				int V = (112 * R - 10 * B - 102 * G) / 255 + 128;
-
-				dY = (Y > 0xF0) ? 0xF0 : (Y < 0x10) ? 0x10 : (unsigned char)Y;
-				dU = (U > 0xFF) ? 0xFF : (U < 0) ? 0 : (unsigned char)U;
-				dV = (V > 0xFF) ? 0xFF : (V < 0) ? 0 : (unsigned char)V;
-
-				float fY = 0.299 * dR + 0.587 * dG + 0.114 * dB;
-				float Cb = (dB - fY) / 1.772;
-				float Cr = (dR - fY) / 1.402;
-
-				fY = 16 + 65.738 * R / 256 + 129.057 * G / 256 + 25.064 * B / 256;
-				Cb = 128 - 37.945 * R / 256 - 74.494 * G / 256 + 112.439 * B / 256;
-				Cr = 128 + 112.439 * R - 94.154 * G / 256 - 18.285 * B / 256;
-
-
-
-				dY = (int)fY;
-				dU = (int)Cb;
-				dV = (int)Cr;
-
 
 				dY = lrint(((dR * 2126 + dG * 7152 + dB * 722) / 10000 * 219) / 255 + 16);
 				dU = lrint((112 * dB - 86 * dG - 26 * dR) / 255 + 128);
 				dV = (112 * dR - 10 * dB - 102 * dG) / 255 + 128;
 
-				};
+			};
 			uint8_t Y1, Y2;
 			uint8_t U1, U2;
 			uint8_t V1, V2;
@@ -206,8 +182,10 @@ namespace MyRGB {
 	}
 }
 
-void doRTD() {
-	char tgaPath[1024];
+void loadTga( int i, uint8_t* frameTGA, int width, int height, uint8_t* frameMASKYUV, uint8_t* frameTemp, 
+	uint8_t* frameFILLYUV, uint8_t* frameKEYYUV)
+{
+
 	const int tgaFrameNum = 35;
 	std::string rootPath_FILL = R"(E:\TGA\DualAlpha\KKD_FILL_)";
 	std::string rootPath_KEY = R"(E:\TGA\DualAlpha\KKD_KEY_)";
@@ -215,6 +193,28 @@ void doRTD() {
 	//std::string rootPath_FILL = R"(E:\TGA\221 volet ralenti\L2_221_FILL_)";
 	//std::string rootPath_KEY = R"(E:\TGA\221 volet ralenti\L2_221_KEY_)";
 	//std::string rootPath_MASK = R"(E:\TGA\221 volet ralenti\L2_221_MASK_)";
+	char tgaPath[1024];
+	{//load tga and convert to yuv
+		//load mask
+		sprintf_s(tgaPath, R"(%s%05d.tga)", rootPath_MASK.data(), i %tgaFrameNum);
+		printf("\n %d  %s", i, tgaPath);
+		tgaTool::loadFrameFromTGA(tgaPath, frameTGA);
+		MyRGB::convert_TGArgb2yuv422_yuv422(frameTGA, width, height, false, frameMASKYUV, frameTemp);
+
+		//load fill
+		sprintf_s(tgaPath, R"(%s%05d.tga)", rootPath_FILL.data(), i % tgaFrameNum);
+		tgaTool::loadFrameFromTGA(tgaPath, frameTGA);
+		MyRGB::convert_TGArgb2yuv422_yuv422(frameTGA, width, height, false, frameFILLYUV, frameTemp);
+		//load key
+		sprintf_s(tgaPath, R"(%s%05d.tga)", rootPath_KEY.data(), i % tgaFrameNum);
+		tgaTool::loadFrameFromTGA(tgaPath, frameTGA);
+		MyRGB::convert_TGArgb2yuv422_yuv422(frameTGA, width, height, false, frameKEYYUV, frameTemp);
+	}
+}
+
+void doRTD() {
+	char tgaPath[1024];
+	const int tgaFrameNum = 35;
 	int width = 1920;
 	int height = 1080;
 	uint8_t* frameTGA = new uint8_t[1920 * 1080 * 4]; 
@@ -233,7 +233,7 @@ void doRTD() {
 	fopen_s(&fp2, "d:\\1080p5994.yuv", "rb");
 
 	uint8_t* pU = frameYUV1 + width * height;
-	for (int i = 1; i < tgaFrameNum; i++)
+	for (int i = 1; i < tgaFrameNum*2; i++)
 	{
 		*pU = i;
 		if (fread(pUyvy1, width*height*2, 1, fp1) != 1)
@@ -249,25 +249,11 @@ void doRTD() {
 			fread(pUyvy1, width * height * 2, 1, fp2);
 		}
 		MyRGB::convUYVYtoYUV(pUyvy1, frameYUV2,width,height);
-		
+
 		//cpu ²Ù×÷
-		//load mask
-		sprintf_s(tgaPath, R"(%s%05d.tga)", rootPath_MASK.data(), i % tgaFrameNum);
-		printf("\n %d  %s", i, tgaPath);
-		tgaTool::loadFrameFromTGA(tgaPath, frameTGA);
-		MyRGB::convert_TGArgb2yuv422_yuv422(frameTGA, width,height,		false, frameMASKYUV,frameTemp);
+		loadTga(i, frameTGA, width, height, frameMASKYUV, frameTemp, frameFILLYUV, frameKEYYUV);
 
-		//load fill
-		sprintf_s(tgaPath, R"(%s%05d.tga)", rootPath_FILL.data(), i % tgaFrameNum);
-		tgaTool::loadFrameFromTGA(tgaPath, frameTGA);
-		MyRGB::convert_TGArgb2yuv422_yuv422(frameTGA, width, height, false, frameFILLYUV, frameTemp);
-		//load key
-		sprintf_s(tgaPath, R"(%s%05d.tga)", rootPath_KEY.data(), i % tgaFrameNum);
-		tgaTool::loadFrameFromTGA(tgaPath, frameTGA);
-		MyRGB::convert_TGArgb2yuv422_yuv422(frameTGA, width, height, false, frameKEYYUV, frameTemp);
-
-		MyRGB::convertAlpha(frameKEYYUV);
-		fwrite(frameMASKYUV, width * height * 2, 1, fp_dest);                    //1
+		MyRGB::convertAlpha(frameKEYYUV);		
 		MyRGB::convertAlpha(frameMASKYUV);
 
 		//mixwithMask
@@ -277,11 +263,10 @@ void doRTD() {
 		//fwrite(frameYUV2, width * height * 2, 1, fp_dest);                    //1
 		//fwrite(frameFILLYUV, width * height * 2, 1, fp_dest);                    //1
 		//fwrite(frameKEYYUV, width * height * 2, 1, fp_dest);                    //1
-		fwrite(frameMASKYUV, width * height * 2, 1, fp_dest);                    //1
-		fwrite(frameTemp, width * height * 2, 1, fp_dest);                    //1		
-		//fwrite(frameDestYUV, width*height*2, 1, fp_dest);                    //1
-		//if (i > 3)return;
-		
+		//fwrite(frameMASKYUV, width * height * 2, 1, fp_dest);                    //1
+		//fwrite(frameTemp, width * height * 2, 1, fp_dest);                    //1		
+		fwrite(frameDestYUV, width*height*2, 1, fp_dest);                    //1
+		//if (i > 3)return;	
 	}
 }
 int main(){
